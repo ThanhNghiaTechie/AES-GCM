@@ -1,30 +1,24 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
-project(cbtc-aesgcm-bench C)
+project(cbtc_aesgcm_bench
+    VERSION 0.1.0
+    LANGUAGES C
+)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Chọn thư viện crypto
-set(CRYPTO_BACKEND "OPENSSL" CACHE STRING "Crypto backend")
-set_property(CACHE CRYPTO_BACKEND PROPERTY STRINGS OPENSSL MBEDTLS)
+set(CRYPTO_BACKEND "OPENSSL"
+    CACHE STRING "Crypto backend: OPENSSL or MBEDTLS"
+)
+
+set_property(CACHE CRYPTO_BACKEND PROPERTY STRINGS
+    OPENSSL
+    MBEDTLS
+)
 
 message(STATUS "Crypto backend: ${CRYPTO_BACKEND}")
 
-# =========================
-# Source chung
-# =========================
-
-set(COMMON_SOURCES
-    src/ma_msg.c
-    src/ma_stats.c
-    src/timer/timer_posix.c
-    src/platform/platform_linux.c
-)
-
-# =========================
-# Crypto backend
-# =========================
 
 if(CRYPTO_BACKEND STREQUAL "OPENSSL")
 
@@ -32,10 +26,6 @@ if(CRYPTO_BACKEND STREQUAL "OPENSSL")
 
     set(CRYPTO_SOURCE
         src/crypto/crypto_openssl.c
-    )
-
-    set(CRYPTO_LIBRARIES
-        OpenSSL::Crypto
     )
 
 elseif(CRYPTO_BACKEND STREQUAL "MBEDTLS")
@@ -46,65 +36,47 @@ elseif(CRYPTO_BACKEND STREQUAL "MBEDTLS")
         src/crypto/crypto_mbedtls_psa.c
     )
 
-    set(CRYPTO_LIBRARIES
-        MbedTLS::mbedcrypto
-    )
-
 else()
 
     message(FATAL_ERROR
-        "Unsupported CRYPTO_BACKEND: ${CRYPTO_BACKEND}. "
+        "Unsupported CRYPTO_BACKEND=${CRYPTO_BACKEND}. "
         "Use OPENSSL or MBEDTLS."
     )
 
 endif()
 
-add_library(ma_crypto STATIC
+add_library(ma_core
+    src/ma_msg.c
+    src/ma_stats.c
     ${CRYPTO_SOURCE}
 )
 
-target_include_directories(ma_crypto
+target_include_directories(ma_core
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
 )
 
-target_link_libraries(ma_crypto
-    PUBLIC
-        ${CRYPTO_LIBRARIES}
-)
+if(CRYPTO_BACKEND STREQUAL "OPENSSL")
 
-# Bench micro
+    target_link_libraries(ma_core
+        PUBLIC
+            OpenSSL::Crypto
+    )
 
-add_executable(bench_micro
-    apps/bench_micro.c
-    ${COMMON_SOURCES}
-)
+elseif(CRYPTO_BACKEND STREQUAL "MBEDTLS")
 
-target_include_directories(bench_micro
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/include
-)
+    target_link_libraries(ma_core
+        PUBLIC
+            MbedTLS::mbedcrypto
+    )
 
-target_link_libraries(bench_micro
-    PRIVATE
-        ma_crypto
-)
+    add_executable(smoke_psa
+        apps/smoke_psa.c
+    )
 
-# =========================
-# Bench sweep
-# =========================
+    target_link_libraries(smoke_psa
+        PRIVATE
+            MbedTLS::mbedcrypto
+    )
 
-add_executable(bench_sweep
-    apps/bench_sweep.c
-    ${COMMON_SOURCES}
-)
-
-target_include_directories(bench_sweep
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/include
-)
-
-target_link_libraries(bench_sweep
-    PRIVATE
-        ma_crypto
-)
+endif()
