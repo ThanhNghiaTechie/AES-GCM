@@ -56,6 +56,19 @@ target_include_directories(ma_core
         ${PROJECT_SOURCE_DIR}/include
 )
 
+enable_testing()
+
+add_executable(test_serialize
+    tests/test_serialize.c
+)
+
+target_link_libraries(test_serialize
+    PRIVATE
+        ma_core
+)
+
+add_test(NAME test_serialize COMMAND test_serialize)
+
 if(CRYPTO_BACKEND STREQUAL "OPENSSL")
 
     target_link_libraries(ma_core
