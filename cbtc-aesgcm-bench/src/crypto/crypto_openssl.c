@@ -14,6 +14,17 @@ struct ma_key {
     size_t key_len;
 };
 
+static const EVP_CIPHER *ma_gcm_cipher(const ma_key *k)
+{
+    return k->key_len == 16U ? EVP_aes_128_gcm() : EVP_aes_256_gcm();
+}
+
+static int ma_gcm_tag_len_valid(size_t tag_len)
+{
+    return tag_len == 4U || tag_len == 8U ||
+           (tag_len >= 12U && tag_len <= 16U);
+}
+
 
 int ma_crypto_init(void)
 {
@@ -38,7 +49,7 @@ int ma_key_setup(
 
     *k = NULL;
 
-    if (key == NULL || key_len != 32) {
+    if (key == NULL || (key_len != 16U && key_len != 32U)) {
         return -1;
     }
 
@@ -86,11 +97,11 @@ int ma_seal(
     int final_len = 0;
     int result = -1;
 
-    if (k == NULL || k->key_len != sizeof(k->key) ||
-        iv == NULL || iv_len == 0 || iv_len > INT_MAX ||
+    if (k == NULL || (k->key_len != 16U && k->key_len != sizeof(k->key)) ||
+        iv == NULL || iv_len != MA_GCM_NONCE_LEN ||
         (aad_len > 0 && aad == NULL) || aad_len > INT_MAX ||
         (pt_len > 0 && (pt == NULL || ct == NULL)) || pt_len > INT_MAX ||
-        tag == NULL || tag_len == 0 || tag_len > 16) {
+        tag == NULL || !ma_gcm_tag_len_valid(tag_len)) {
         return -1;
     }
 
@@ -99,7 +110,7 @@ int ma_seal(
         goto cleanup;
     }
 
-    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1 ||
+    if (EVP_EncryptInit_ex(ctx, ma_gcm_cipher(k), NULL, NULL, NULL) != 1 ||
         EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, (int)iv_len, NULL) != 1 ||
         EVP_EncryptInit_ex(ctx, NULL, NULL, k->key, iv) != 1) {
         goto cleanup;
@@ -150,11 +161,11 @@ int ma_open(
     int plaintext_started = 0;
     int result = -1;
 
-    if (k == NULL || k->key_len != sizeof(k->key) ||
-        iv == NULL || iv_len == 0 || iv_len > INT_MAX ||
+    if (k == NULL || (k->key_len != 16U && k->key_len != sizeof(k->key)) ||
+        iv == NULL || iv_len != MA_GCM_NONCE_LEN ||
         (aad_len > 0 && aad == NULL) || aad_len > INT_MAX ||
         (ct_len > 0 && (ct == NULL || pt == NULL)) || ct_len > INT_MAX ||
-        tag == NULL || tag_len == 0 || tag_len > 16) {
+        tag == NULL || !ma_gcm_tag_len_valid(tag_len)) {
         return -1;
     }
 
@@ -163,7 +174,7 @@ int ma_open(
         goto cleanup;
     }
 
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL) != 1 ||
+    if (EVP_DecryptInit_ex(ctx, ma_gcm_cipher(k), NULL, NULL, NULL) != 1 ||
         EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, (int)iv_len, NULL) != 1 ||
         EVP_DecryptInit_ex(ctx, NULL, NULL, k->key, iv) != 1) {
         goto cleanup;

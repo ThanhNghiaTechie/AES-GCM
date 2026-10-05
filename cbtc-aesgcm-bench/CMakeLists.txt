@@ -17,6 +17,8 @@ set_property(CACHE CRYPTO_BACKEND PROPERTY STRINGS
     MBEDTLS
 )
 
+string(TOUPPER "${CRYPTO_BACKEND}" CRYPTO_BACKEND)
+
 message(STATUS "Crypto backend: ${CRYPTO_BACKEND}")
 
 
@@ -69,6 +71,26 @@ target_link_libraries(test_serialize
 
 add_test(NAME test_serialize COMMAND test_serialize)
 
+add_executable(test_crypto_reuse
+    tests/test_crypto_reuse.c
+)
+
+target_link_libraries(test_crypto_reuse
+    PRIVATE
+        ma_core
+)
+
+add_test(NAME test_crypto_reuse COMMAND test_crypto_reuse)
+
+add_executable(smoke_crypto
+    apps/smoke_crypto.c
+)
+
+target_link_libraries(smoke_crypto
+    PRIVATE
+        ma_core
+)
+
 if(CRYPTO_BACKEND STREQUAL "OPENSSL")
 
     target_link_libraries(ma_core
@@ -80,15 +102,6 @@ elseif(CRYPTO_BACKEND STREQUAL "MBEDTLS")
 
     target_link_libraries(ma_core
         PUBLIC
-            MbedTLS::mbedcrypto
-    )
-
-    add_executable(smoke_psa
-        apps/smoke_psa.c
-    )
-
-    target_link_libraries(smoke_psa
-        PRIVATE
             MbedTLS::mbedcrypto
     )
 

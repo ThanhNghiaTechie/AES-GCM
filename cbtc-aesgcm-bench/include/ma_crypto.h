@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define MA_GCM_NONCE_LEN 12U
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -24,7 +26,9 @@ typedef struct ma_key ma_key;
 int ma_crypto_init(void);
 
 /*
- * Import/setup an AES key.
+ * Import/setup an AES-128 (16-byte) or AES-256 (32-byte) key once and retain
+ * the returned handle for repeated encryption and decryption operations.
+ * The key remains available until ma_key_free() is called.
  *
  * Parameters:
  *   k       - output key handle
@@ -47,14 +51,14 @@ int ma_key_setup(
  * Parameters:
  *   k       - key handle
  *   iv      - initialization vector
- *   iv_len  - IV length in bytes
+ *   iv_len  - must be MA_GCM_NONCE_LEN (12 bytes)
  *   aad     - additional authenticated data
  *   aad_len - AAD length in bytes
  *   pt      - plaintext
  *   pt_len  - plaintext length in bytes
  *   ct      - output ciphertext buffer
  *   tag     - output authentication tag
- *   tag_len - authentication tag length in bytes
+ *   tag_len - 4, 8, or 12 through 16 bytes
  *
  * Returns:
  *   0  on success
@@ -74,7 +78,9 @@ int ma_seal(
 );
 
 /*
- * AES-GCM decryption.
+ * AES-GCM decryption. iv_len must be MA_GCM_NONCE_LEN (12 bytes), and
+ * tag_len must be 4, 8, or 12 through 16 bytes. Authentication failures,
+ * including an invalid tag, are returned as a negative backend error.
  *
  * Returns:
  *   0  on success
